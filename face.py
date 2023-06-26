@@ -2,35 +2,69 @@ import cv2
 import mediapipe as mp
 import time
 import random
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QImage, QPixmap, QFont
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton
+
 
 mp_drawing = mp.solutions.drawing_utils
 mp_face_mesh = mp.solutions.face_mesh
 
 drawing_spec = mp_drawing.DrawingSpec(color=(255, 255, 255), thickness=1, circle_radius=1)
 
-cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+class FaceMeshWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
 
-with mp_face_mesh.FaceMesh(
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5) as face_mesh:
+        self.cap = cv2.VideoCapture(0)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+        
 
-    while cap.isOpened():
+        self.face_mesh = mp_face_mesh.FaceMesh(
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5)
+        
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_frame)
+        self.timer.start(5)
 
-        success, image = cap.read()
+        self.image_label = QLabel()
+        self.image_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.image_label.setFixedSize(1920,1080)
+
+        self.warning_label = QLabel(" ** 測試階段 | 數據檢測並不100%準確 ")
+        self.warning_label.setAlignment(Qt.AlignCenter)
+        font = QFont()
+        font.setPointSize(16)
+        self.warning_label.setFont(font)
+        self.fps_label = QLabel()
+        self.fps_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+
+ 
+
+        self.layout = QVBoxLayout()
+        self.layout.addWidget(self.image_label)
+        self.layout.addWidget(self.warning_label)
+        self.layout.addWidget(self.fps_label)
+
+        self.setLayout(self.layout)
+
+    def update_frame(self):
+        success, image = self.cap.read()
 
         start = time.time()
 
-        image = cv2.cvtColor(cv2.flip(image, 1), cv2.COLOR_BGR2RGB)
 
         image.flags.writeable = False
 
-        results = face_mesh.process(image)
+
+        results = self.face_mesh.process(image)
 
         image.flags.writeable = True
 
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        image = cv2.resize(image, (self.image_label.width(), self.image_label.height()))
 
         if results.multi_face_landmarks:
             for face_landmarks in results.multi_face_landmarks:
@@ -64,7 +98,12 @@ with mp_face_mesh.FaceMesh(
                 spo2_val = random.uniform(0.85, 1)
                 cv2.putText(image, f'{spo2_val:.2f}', (x_min + 90, y_max + 35), cv2.FONT_HERSHEY_SIMPLEX, 
                             1, (255, 255, 255), 2, cv2.LINE_AA)
+                
+                cv2.rectangle(image, (20, image.shape[0] - 50), (200, image.shape[0] - 10), (255, 0, 0), -1)
+                cv2.putText(image, "result: STABLE", (25, image.shape[0] - 20), cv2.FONT_HERSHEY_SIMPLEX, 
+                    0.7, (255, 255, 255), 2, cv2.LINE_AA)
 
+        
         end = time.time()
         totalTime = end - start
 
@@ -72,9 +111,25 @@ with mp_face_mesh.FaceMesh(
 
         cv2.putText(image, f'FPS: {int(fps)}', (20,70), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0), 2)
 
-        cv2.imshow('MediaPipe FaceMesh', image)
+        qimage = QImage(image.data, image.shape[1], image.shape[0], 
+                        image.strides[0], QImage.Format_RGB888)
 
-        if cv2.waitKey(5) & 0xFF == 27:
-            break
+        pixmap = QPixmap.fromImage(qimage)
+        self.image_label.setPixmap(pixmap)
 
-cap.release()
+        self.fps_label.setText(f'FPS: {int(fps)}')
+
+  
+    def closeEvent(self, event):
+        self.cap.release()
+        self.face_mesh.close()
+        event.accept()
+
+if __name__ == '__main__':
+    app = QApplication([])
+    main_window = QMainWindow()
+    main_widget = FaceMeshWidget()
+    main_window.setCentralWidget(main_widget)
+    main_window.setWindowTitle('AI Health Monitor')
+    main_window.show()
+    app.exec_()
