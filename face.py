@@ -99,9 +99,9 @@ class FaceMeshWidget(QWidget):
                 cv2.putText(image, f'{spo2_val:.2f}', (x_min + 90, y_max + 35), cv2.FONT_HERSHEY_SIMPLEX, 
                             1, (255, 255, 255), 2, cv2.LINE_AA)
                 
-                cv2.rectangle(image, (20, image.shape[0] - 50), (200, image.shape[0] - 10), (255, 0, 0), -1)
-                cv2.putText(image, "result: STABLE", (25, image.shape[0] - 20), cv2.FONT_HERSHEY_SIMPLEX, 
-                    0.7, (255, 255, 255), 2, cv2.LINE_AA)
+                cv2.rectangle(image, (20, image.shape[0] - 70), (350, image.shape[0] - 20), (255, 0, 0), -1)
+                cv2.putText(image, "result: STABLE", (25, image.shape[0] - 45), cv2.FONT_HERSHEY_SIMPLEX, 
+            1.5, (255, 255, 255), 2, cv2.LINE_AA)
 
         
         end = time.time()
